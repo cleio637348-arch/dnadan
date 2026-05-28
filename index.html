@@ -47,14 +47,19 @@
             color: rgba(255, 255, 255, 0.4);
         }
 
-        /* [핵심 수정] 줄바꿈이 가능하도록 플렉시블 스타일 적용 */
+        /* [수정 포인트] 모바일에서 무한 증식 및 짤림 방지 */
         .random-text {
             position: absolute;
             font-weight: bold;
             display: inline-block;
-            white-space: normal;      /* 한 줄 고정 해제 -> 자동 줄바꿈 허용 */
-            word-break: keep-all;     /* 단어 단위로 예쁘게 줄바꿈 */
-            max-width: 40vw;          /* 모바일에서도 화면 너비의 최대 40%까지만 차지하도록 제한 */
+            white-space: normal;      /* 줄바꿈 허용 */
+            
+            /* 핵심 해결책: 공백이 없어도 글자 단위로 무조건 강제 줄바꿈 */
+            word-break: break-all;     
+            
+            /* 모바일 화면을 넘어가지 않도록 최대 너비를 타이트하게 제한 (화면 폭의 최대 50%) */
+            max-width: 50vw;          
+            
             user-select: none;
             will-change: transform, opacity;
             line-height: 1.2;
@@ -117,19 +122,20 @@
                 span.className = 'random-text';
                 span.innerText = textContent;
 
-                // 반응형 폰트 크기 설정
-                const fontSizeVw = (Math.random() * 3) + 3.5; // 3.5vw ~ 6.5vw
+                // 모바일 가독성을 위해 글자 크기 밸런스 조정 (4vw ~ 7vw)
+                const fontSizeVw = (Math.random() * 3) + 4; 
                 span.style.fontSize = fontSizeVw + 'vw';
                 span.style.color = getRandomColor();
 
-                // 우선 바디에 임시 추가하여 줄바꿈이 반영된 실제 크기(width, height) 계산
                 document.body.appendChild(span);
+                
+                // 줄바꿈이 완벽히 적용된 후의 실제 렌더링 너비와 높이 측정
                 const textWidth = span.offsetWidth;
                 const textHeight = span.offsetHeight;
 
-                // 화면 밖으로 나가지 않는 안전한 랜덤 시작 위치 계산
+                // 벽 바깥으로 아예 나가지 못하도록 마진 확보 후 랜덤 배치
                 const startX = Math.random() * (window.innerWidth - textWidth);
-                const startY = Math.random() * (window.innerHeight - textHeight - 100) + 50; 
+                const startY = Math.random() * (window.innerHeight - textHeight - 120) + 40; 
 
                 const textObj = {
                     element: span,
@@ -137,12 +143,12 @@
                     height: textHeight,
                     x: startX,
                     y: startY,
-                    vx: (Math.random() - 0.5) * 6, // 튀는 속도를 조금 안정적으로 조절
-                    vy: -(Math.random() * 5 + 4),    
-                    gravity: 0.35,                   
-                    bounce: 0.6,                   
+                    vx: (Math.random() - 0.5) * 5, 
+                    vy: -(Math.random() * 4 + 4),    
+                    gravity: 0.3,                   
+                    bounce: 0.55,                   
                     opacity: 1,
-                    life: 150                       
+                    life: 160                       
                 };
 
                 span.style.left = '0px';
@@ -161,21 +167,21 @@
                 t.x += t.vx;
                 t.y += t.vy;
 
-                // 바닥 바운스 (글자 자체의 높이 t.height 반영)
+                // 바닥 바운스 안전장치
                 const floor = window.innerHeight - t.height - 20;
                 if (t.y > floor) {
                     t.y = floor;
                     t.vy = -t.vy * t.bounce; 
-                    t.vx *= 0.9;             
+                    t.vx *= 0.85;             
                 }
 
-                // 좌우 벽 바운스 (자동 줄바꿈된 가로 폭 t.width 반영)
+                // 좌우 벽 바운스 안전장치 (화면 크기 가변 대응)
                 if (t.x < 0) {
                     t.x = 0;
-                    t.vx = -t.vx * 0.8;
+                    t.vx = -t.vx * 0.7;
                 } else if (t.x > window.innerWidth - t.width) {
                     t.x = window.innerWidth - t.width;
-                    t.vx = -t.vx * 0.8;
+                    t.vx = -t.vx * 0.7;
                 }
 
                 t.life--;
