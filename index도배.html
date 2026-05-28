@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화면 곳곳에서 퐁퐁 튀는 효과</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+            font-family: sans-serif;
+        }
+
+        /* 입력창 스타일: 더 투명하게 변경 및 디자인 세련되게 수정 */
+        #control-panel {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            background: rgba(255, 255, 255, 0.07); /* 투명도 높임 */
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(3px); /* 블러 가볍게 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #stop-input {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            text-align: center;
+            color: #fff;
+        }
+
+        /* 힌트 문구(placeholder) 색상 설정 */
+        #stop-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .random-text {
+            position: absolute;
+            font-weight: bold;
+            white-space: nowrap;
+            user-select: none;
+            will-change: transform, opacity;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="control-panel">
+        <input type="text" id="stop-input" placeholder="암호를 입력하세요">
+    </div>
+
+    <script>
+        const textContent = "니얼굴의악마를왜깨웟습니다까";
+        const ESCAPE_WORD = "냐냐냥!!";
+        let generatorInterval = null;
+        const activeTexts = []; 
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // 산발적으로 화면 곳곳에서 튕겨 나오는 텍스트 생성
+        function spawnText() {
+            const spawnCount = Math.floor(Math.random() * 2) + 2; 
+
+            for (let i = 0; i < spawnCount; i++) {
+                const span = document.createElement('span');
+                span.className = 'random-text';
+                span.innerText = textContent;
+
+                const fontSize = Math.floor(Math.random() * 24) + 16;
+                span.style.fontSize = fontSize + 'px';
+                span.style.color = getRandomColor();
+
+                // [변경 포인트] 이제 바닥이 아닌 화면 전체 무작위 x, y 좌표에서 생겨남
+                const startX = Math.random() * (window.innerWidth - 200);
+                const startY = Math.random() * (window.innerHeight - 100); 
+
+                const textObj = {
+                    element: span,
+                    x: startX,
+                    y: startY,
+                    vx: (Math.random() - 0.5) * 10, // 좌우 사방으로 퍼지는 속도
+                    vy: -(Math.random() * 8 + 6),    // 위로 퐁 튀어오르는 초기 속도
+                    gravity: 0.5,                   // 중력
+                    bounce: 0.65,                   // 바닥 탄성
+                    opacity: 1,
+                    life: 140                       // 수명 늘림 (약 2.3초)
+                };
+
+                span.style.left = '0px';
+                span.style.top = '0px';
+                span.style.transform = `translate(${textObj.x}px, ${textObj.y}px)`;
+
+                document.body.appendChild(span);
+                activeTexts.push(textObj);
+            }
+        }
+
+        // 물리 연산 루프
+        function updatePhysics() {
+            for (let i = activeTexts.length - 1; i >= 0; i--) {
+                const t = activeTexts[i];
+                
+                t.vy += t.gravity;
+                t.x += t.vx;
+                t.y += t.vy;
+
+                // 바닥 바운스
+                const floor = window.innerHeight - 50;
+                if (t.y > floor) {
+                    t.y = floor;
+                    t.vy = -t.vy * t.bounce; 
+                    t.vx *= 0.9;             
+                }
+
+                // 좌우 벽 바운스
+                if (t.x < 0) {
+                    t.x = 0;
+                    t.vx = -t.vx * 0.8;
+                } else if (t.x > window.innerWidth - 220) {
+                    t.x = window.innerWidth - 220;
+                    t.vx = -t.vx * 0.8;
+                }
+
+                // 수명 기반 부드러운 페이드아웃
+                t.life--;
+                if (t.life < 50) {
+                    t.opacity = t.life / 50;
+                }
+
+                t.element.style.transform = `translate(${t.x}px, ${t.y}px)`;
+                t.element.style.opacity = t.opacity;
+
+                if (t.life <= 0) {
+                    t.element.remove();
+                    activeTexts.splice(i, 1);
+                }
+            }
+            
+            if (generatorInterval) {
+                requestAnimationFrame(updatePhysics);
+            }
+        }
+
+        function startEffect() {
+            spawnText();
+            generatorInterval = setInterval(spawnText, 500);
+            requestAnimationFrame(updatePhysics);
+        }
+
+        function stopEffect() {
+            clearInterval(generatorInterval);
+            generatorInterval = null; 
+            
+            activeTexts.forEach(t => t.element.remove());
+            activeTexts.length = 0;
+            
+            document.getElementById('control-panel').remove();
+        }
+
+        document.getElementById('stop-input').addEventListener('input', (e) => {
+            if (e.target.value === ESCAPE_WORD) {
+                stopEffect();
+            }
+        });
+
+        window.onload = startEffect;
+    </script>
+
+</body>
+</html>
