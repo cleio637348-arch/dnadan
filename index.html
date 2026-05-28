@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
     <title>자료 찾기 사이트</title>
     <style>
         body {
@@ -27,10 +27,14 @@
             border-radius: 20px;
             backdrop-filter: blur(3px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 80%;
+            max-width: 250px;
+            box-sizing: border-box;
         }
 
         #stop-input {
-            padding: 6px 12px;
+            width: 100%;
+            padding: 6px 0;
             background: transparent;
             border: none;
             outline: none;
@@ -51,19 +55,27 @@
             will-change: transform, opacity;
         }
 
-        /* [새로 추가] 암호 입력 후 중앙에 뜰 종료 문구 스타일 */
+        /* 최종 메시지 모바일 대응 최적화 */
         #final-message {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 3rem; /* 큰 글씨 */
+            font-size: 6vw; /* 화면 크기에 반응 (PC에서는 max-size 제어) */
             font-weight: bold;
             color: #fff;
             text-align: center;
-            white-space: nowrap;
+            width: 90%;
+            word-break: keep-all; /* 단어 단위 줄바꿈 */
             user-select: none;
-            animation: finalFadeIn 1s ease-out forwards; /* 부드럽게 나타나는 효과 */
+            animation: finalFadeIn 1s ease-out forwards;
+        }
+
+        /* PC 화면에서는 너무 커지지 않도록 한계 설정 */
+        @media (min-width: 768px) {
+            #final-message {
+                font-size: 3rem;
+            }
         }
 
         @keyframes finalFadeIn {
@@ -101,21 +113,27 @@
                 span.className = 'random-text';
                 span.innerText = textContent;
 
-                const fontSize = Math.floor(Math.random() * 24) + 16;
-                span.style.fontSize = fontSize + 'px';
+                // [모바일 대응] 글자 크기를 화면 폭에 비례하는 vw 단위로 랜덤 지정 (3vw ~ 7vw)
+                const fontSizeVw = (Math.random() * 4) + 3;
+                span.style.fontSize = fontSizeVw + 'vw';
                 span.style.color = getRandomColor();
 
-                const startX = Math.random() * (window.innerWidth - 200);
+                // 화면에 임시 배치 후 실제 렌더링된 너비(px) 계산 (벽 충돌 방지용)
+                document.body.appendChild(span);
+                const textWidth = span.offsetWidth;
+
+                const startX = Math.random() * (window.innerWidth - textWidth);
                 const startY = Math.random() * (window.innerHeight - 100); 
 
                 const textObj = {
                     element: span,
+                    width: textWidth, // 텍스트 실제 가로 길이 저장
                     x: startX,
                     y: startY,
-                    vx: (Math.random() - 0.5) * 10, 
-                    vy: -(Math.random() * 8 + 6),    
-                    gravity: 0.5,                   
-                    bounce: 0.65,                   
+                    vx: (Math.random() - 0.5) * 8, 
+                    vy: -(Math.random() * 6 + 4),    
+                    gravity: 0.4,                   
+                    bounce: 0.6,                   
                     opacity: 1,
                     life: 140                       
                 };
@@ -124,7 +142,6 @@
                 span.style.top = '0px';
                 span.style.transform = `translate(${textObj.x}px, ${textObj.y}px)`;
 
-                document.body.appendChild(span);
                 activeTexts.push(textObj);
             }
         }
@@ -137,18 +154,19 @@
                 t.x += t.vx;
                 t.y += t.vy;
 
-                const floor = window.innerHeight - 50;
+                const floor = window.innerHeight - 40;
                 if (t.y > floor) {
                     t.y = floor;
                     t.vy = -t.vy * t.bounce; 
                     t.vx *= 0.9;             
                 }
 
+                // [가변 벽 충돌] 저장해둔 각 글자 폭(t.width)을 기준으로 튕김 처리
                 if (t.x < 0) {
                     t.x = 0;
                     t.vx = -t.vx * 0.8;
-                } else if (t.x > window.innerWidth - 220) {
-                    t.x = window.innerWidth - 220;
+                } else if (t.x > window.innerWidth - t.width) {
+                    t.x = window.innerWidth - t.width;
                     t.vx = -t.vx * 0.8;
                 }
 
@@ -177,19 +195,15 @@
             requestAnimationFrame(updatePhysics);
         }
 
-        // 효과 중단 및 최종 메시지 출력 함수
         function stopEffect() {
             clearInterval(generatorInterval);
             generatorInterval = null; 
             
-            // 기존 튀어 다니던 텍스트 전부 삭제
             activeTexts.forEach(t => t.element.remove());
             activeTexts.length = 0;
             
-            // 입력창 상단 UI 삭제
             document.getElementById('control-panel').remove();
 
-            // [새로 추가] 정중앙 종료 메시지 생성 및 띄우기 (영구 지속)
             const finalDiv = document.createElement('div');
             finalDiv.id = 'final-message';
             finalDiv.innerText = '니얼굴의악마는 잠들었습니다 :)';
