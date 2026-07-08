@@ -1,237 +1,1106 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
-    <title>자료 찾기</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #111;
-            overflow: hidden;
-            height: 100vh;
-            position: relative;
-            font-family: sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DIVE INTO U</title>
+<style>
+  :root{
+    --bg:#050b16;
+    --panel:#0a1626;
+    --panel-edge:#123047;
+    --cyan:#6eeeff;
+    --cyan-dim:#1f5b68;
+    --cyan-soft:rgba(110,238,255,0.35);
+    --text:#d9eef6;
+    --text-dim:#5f8394;
+    --amber:#f0c869;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%;
+    height:100%; height:100dvh;
+    background:var(--bg);
+    overflow-x:hidden; overflow-y:auto;
+    font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+    color:var(--text);
+    -webkit-text-size-adjust:100%;
+  }
+  #world{ position:fixed; inset:0; z-index:0; }
+  #bg{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    image-rendering: pixelated;
+  }
+  #visionHole{
+    position:absolute; left:50%; top:56%;
+    width:40px; height:40px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    border: 2px solid rgba(110,238,255,0.35);
+    box-shadow: 0 0 26px rgba(110,238,255,0.25), 0 0 0 9999px var(--bg);
+    transition: width 1.3s ease, height 1.3s ease;
+    pointer-events:none;
+  }
 
-        /* 입력창 스타일 */
-        #control-panel {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            background: rgba(255, 255, 255, 0.07);
-            padding: 8px 16px;
-            border-radius: 20px;
-            backdrop-filter: blur(3px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 80%;
-            max-width: 250px;
-            box-sizing: border-box;
-        }
+  #sun{
+    position:absolute; left:-70px; top:18%;
+    width:190px; height:190px; border-radius:50%;
+    background: radial-gradient(circle, #fff6d8 0%, #f4c86a 32%, rgba(244,200,106,0.18) 68%, transparent 100%);
+    box-shadow: 0 0 70px 34px rgba(244,200,106,0.14);
+    opacity:0; transition: opacity 2.2s ease;
+    pointer-events:none;
+  }
+  #sun.show{ opacity:1; }
+  #satelliteCanvas{
+    position:absolute; top:26%; right:12%;
+    width:150px; height:90px;
+    image-rendering: pixelated;
+    opacity:0; transition: opacity 1.4s ease;
+    pointer-events:none;
+  }
+  #satelliteCanvas.show{ opacity:1; }
+  #skyOverlay{
+    position:absolute; inset:0;
+    background: linear-gradient(to bottom, #8fd3f4, #cdeeff 60%, #eaf8ff);
+    opacity:0; transition: opacity 2.4s ease;
+    pointer-events:none;
+  }
+  #skyOverlay.show{ opacity:1; }
 
-        #stop-input {
-            width: 100%;
-            padding: 6px 0;
-            background: transparent;
-            border: none;
-            outline: none;
-            font-size: 14px;
-            text-align: center;
-            color: #fff;
-        }
+  #speakerLabel{
+    font-size:11px; letter-spacing:2px; text-transform:uppercase;
+    margin-bottom:-4px; display:none;
+  }
+  .speaker-satellite{ color:#9fd4e8; }
+  .speaker-whale{ color:var(--cyan); }
 
-        #stop-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
+  #textbox.textwindow-mode{
+    border-color: var(--amber);
+    box-shadow: 0 0 0 4px rgba(0,0,0,0.35), 0 0 26px rgba(240,200,105,0.35);
+  }
+  #textbox.textwindow-mode #narration{ color:#ffe6b8; }
 
-        /* [수정 포인트] 모바일에서 무한 증식 및 짤림 방지 */
-        .random-text {
-            position: absolute;
-            font-weight: bold;
-            display: inline-block;
-            white-space: normal;      /* 줄바꿈 허용 */
-            
-            /* 핵심 해결책: 공백이 없어도 글자 단위로 무조건 강제 줄바꿈 */
-            word-break: break-all;     
-            
-            /* 모바일 화면을 넘어가지 않도록 최대 너비를 타이트하게 제한 (화면 폭의 최대 50%) */
-            max-width: 50vw;          
-            
-            user-select: none;
-            will-change: transform, opacity;
-            line-height: 1.2;
-        }
+  #app{
+    position:relative; z-index:2;
+    min-height:100%;
+    width:100%;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-end;
+    padding: 16px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    gap:10px;
+  }
 
-        /* 최종 메시지 */
-        #final-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 6vw;
-            font-weight: bold;
-            color: #fff;
-            text-align: center;
-            width: 90%;
-            word-break: keep-all;
-            user-select: none;
-            animation: finalFadeIn 1s ease-out forwards;
-        }
+  #startScreen{
+    position:fixed; inset:0; z-index:10;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(5,11,22,0.96);
+    gap:16px; text-align:center; padding:20px;
+  }
+  #startScreen h1{
+    font-size:22px; letter-spacing:4px; font-weight:600; color:var(--cyan);
+    text-shadow: 0 0 12px var(--cyan-soft);
+    margin:0;
+  }
+  #startScreen p{ color:var(--text-dim); font-size:13px; letter-spacing:1px; margin:0; max-width:280px;}
+  .pixel-btn{
+    background:var(--panel);
+    border:2px solid var(--cyan-dim);
+    color:var(--cyan);
+    padding:10px 20px;
+    font-size:14px;
+    letter-spacing:2px;
+    cursor:pointer;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+    transition: transform 0.08s ease, border-color 0.15s ease;
+    touch-action: manipulation;
+  }
+  .pixel-btn:hover{ border-color:var(--cyan); }
+  .pixel-btn:active{ transform:translateY(1px); box-shadow:1px 1px 0 rgba(0,0,0,0.5); }
 
-        @media (min-width: 768px) {
-            #final-message {
-                font-size: 3rem;
-            }
-        }
+  #textbox{
+    width:min(680px, 94vw);
+    background:var(--panel);
+    border:2px solid var(--panel-edge);
+    box-shadow: 0 0 0 4px rgba(0,0,0,0.35), 0 0 24px rgba(0,0,0,0.5);
+    padding:18px 20px;
+    min-height:120px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  #narration{
+    font-size:15px; line-height:1.75; letter-spacing:0.3px;
+    white-space:pre-wrap;
+    min-height:56px;
+    cursor:pointer;
+  }
+  #choices{ display:flex; flex-wrap:wrap; gap:8px; }
+  #footerRow{ display:flex; justify-content:flex-end; }
+  #nextBtn{ display:none; }
 
-        @keyframes finalFadeIn {
-            from { opacity: 0; transform: translate(-50%, -40%); }
-            to { opacity: 1; transform: translate(-50%, -50%); }
-        }
-    </style>
+  #puzzleWrap{
+    width:min(680px, 94vw);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .puzzle-title{
+    font-size:11px; letter-spacing:3px; color:var(--text-dim);
+    text-transform:uppercase; text-align:center;
+  }
+  .puzzle-signal{
+    font-size:19px; letter-spacing:1px; color:var(--cyan);
+    text-shadow: 0 0 10px var(--cyan-soft);
+    text-align:center; word-break:break-word;
+  }
+  .puzzle-question{ font-size:13.5px; color:var(--text); text-align:center; padding:0 6px; }
+  .hint{
+    font-size:12.5px; color:var(--amber); min-height:16px; text-align:center; padding:0 8px;
+  }
+  #gridHolder{ position:relative; max-width:100%; }
+  #gridHolder canvas{
+    image-rendering: pixelated;
+    border:1px solid var(--panel-edge);
+    background:#04111f;
+    max-width:100%;
+    display:block;
+  }
+  .marker-label{
+    position:absolute;
+    font-size:11px; color:var(--cyan);
+    pointer-events:none;
+    transform: translate(-50%, -140%);
+    letter-spacing:1px;
+  }
+  #progress{
+    position:fixed; top:max(12px, env(safe-area-inset-top)); left:14px; z-index:3;
+    font-size:10.5px; letter-spacing:2px; color:var(--text-dim);
+  }
+
+  #p1opts{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+
+  #resetBtn{
+    position:fixed; top:max(12px, env(safe-area-inset-top)); right:14px; z-index:3;
+    font-size:10.5px; letter-spacing:1px; color:var(--text-dim);
+    background:none; border:1px solid var(--panel-edge); padding:4px 9px;
+    cursor:pointer;
+  }
+  #resetBtn:hover{ color:var(--cyan); border-color:var(--cyan-dim); }
+
+  @media (max-width:420px){
+    #narration{ font-size:14px; }
+    .puzzle-signal{ font-size:16px; }
+    .puzzle-question{ font-size:13px; }
+    #startScreen h1{ font-size:19px; letter-spacing:3px; }
+  }
+</style>
 </head>
 <body>
 
-    <div id="control-panel">
-        <input type="text" id="stop-input" placeholder="암호를 입력하세요">
+<div id="world">
+  <canvas id="bg"></canvas>
+  <div id="sun"></div>
+  <canvas id="satelliteCanvas"></canvas>
+  <div id="skyOverlay"></div>
+  <div id="visionHole"></div>
+</div>
+
+<div id="progress"></div>
+<button id="resetBtn" style="display:none;">초기화</button>
+
+<div id="startScreen">
+  <h1>Dive into You</h1>
+  <p>챕터 1 — 시신경 · 균형좌표계 · 청각 복구</p>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+    <button class="pixel-btn" id="continueBtn" style="display:none;">이어하기</button>
+    <button class="pixel-btn" id="startBtn">처음부터</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="puzzleWrap" style="display:none;"></div>
+  <div id="textbox">
+    <div id="speakerLabel"></div>
+    <div id="narration"></div>
+    <div id="choices"></div>
+    <div id="footerRow"><button class="pixel-btn" id="nextBtn">▶ 다음</button></div>
+  </div>
+</div>
+
+<script>
+const bgCanvas = document.getElementById('bg');
+const bgCtx = bgCanvas.getContext('2d');
+const BG_W = 160, BG_H = 90;
+bgCanvas.width = BG_W; bgCanvas.height = BG_H;
+
+let stars = [];
+for(let i=0;i<70;i++){
+  stars.push({ x: Math.random()*BG_W, y: Math.random()*BG_H, speed: 0.02+Math.random()*0.06, b: Math.random() });
+}
+function drawBg(){
+  bgCtx.fillStyle = '#050b16';
+  bgCtx.fillRect(0,0,BG_W,BG_H);
+  bgCtx.fillStyle = 'rgba(20,50,70,0.25)';
+  bgCtx.fillRect(20,10,40,26);
+  bgCtx.fillStyle = 'rgba(15,35,55,0.2)';
+  bgCtx.fillRect(90,40,50,30);
+  for(const s of stars){
+    s.x -= s.speed;
+    if(s.x < 0) s.x = BG_W;
+    const flick = 0.5 + 0.5*Math.sin(Date.now()*0.002 + s.b*10);
+    const c = 120 + Math.floor(flick*120);
+    bgCtx.fillStyle = `rgb(${c-20},${c},${c+10})`;
+    bgCtx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
+  }
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+
+const visionHole = document.getElementById('visionHole');
+const worldEl = document.getElementById('world');
+const sightState = { stage:0 };     // 0: 닫힘 · 1: 한쪽 시신경 · 2: 완전
+let wobbleAmp = 2.6;
+let wobbleT = 0;
+let balanced = false;
+
+function setVisionStage(stage){
+  sightState.stage = stage;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const full = Math.max(vw, vh) * 1.6;
+  if(stage === 0) visionHole.style.width = visionHole.style.height = '40px';
+  else if(stage === 1) visionHole.style.width = visionHole.style.height = Math.min(vw,vh)*0.45 + 'px';
+  else visionHole.style.width = visionHole.style.height = full + 'px';
+}
+setVisionStage(0);
+
+/* ---------------- 자동 저장 / 이어하기 / 초기화 ---------------- */
+const STORAGE_KEY = 'whale_ch1_save_v1';
+let humStarted = false;
+
+function saveProgress(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      beatIndex, sightStage: sightState.stage, balanced, humStarted
+    }));
+  }catch(e){ /* 저장 불가 환경 (프라이빗 모드 등) 은 무시 */ }
+}
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearProgress(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+}
+
+/* ---------------- 배경 웅웅거림 (청각 복구 이후 지속) ---------------- */
+let audioCtx = null;
+function ensureAudio(){
+  try{
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(err){
+    console.warn('audio init failed', err);
+  }
+}
+function startHum(){
+  ensureAudio();
+  if(!audioCtx) return;
+  humStarted = true;
+  try{
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 600;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.0001;
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const osc1 = audioCtx.createOscillator();
+    osc1.type = 'triangle'; osc1.frequency.value = 140;
+    const osc2 = audioCtx.createOscillator();
+    osc2.type = 'triangle'; osc2.frequency.value = 146;
+    const osc3 = audioCtx.createOscillator(); // 배음 (작은 스피커에서도 들리도록)
+    osc3.type = 'sine'; osc3.frequency.value = 280;
+    const osc3gain = audioCtx.createGain();
+    osc3gain.gain.value = 0.35;
+
+    const lfo = audioCtx.createOscillator();
+    lfo.type = 'sine'; lfo.frequency.value = 0.2;
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 0.018;
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+
+    osc1.connect(filter); osc2.connect(filter);
+    osc3.connect(osc3gain); osc3gain.connect(filter);
+
+    osc1.start(); osc2.start(); osc3.start(); lfo.start();
+    gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 1.2);
+  }catch(err){
+    console.warn('hum start failed', err);
+  }
+}
+
+function animateWorld(){
+  wobbleT += 0.02;
+  if(balanced && wobbleAmp > 0.01){ wobbleAmp *= 0.94; }
+  const angle = Math.sin(wobbleT) * wobbleAmp;
+  const tx = Math.sin(wobbleT*0.7) * wobbleAmp * 1.4;
+  worldEl.style.transform = `rotate(${angle.toFixed(2)}deg) translate(${tx.toFixed(1)}px,0)`;
+  requestAnimationFrame(animateWorld);
+}
+animateWorld();
+
+function showSun(){ document.getElementById('sun').classList.add('show'); }
+function showSky(){ document.getElementById('skyOverlay').classList.add('show'); }
+
+/* ---------------- 인공위성 도트 스프라이트 ---------------- */
+const satCanvas = document.getElementById('satelliteCanvas');
+const satCtx = satCanvas.getContext('2d');
+const SAT_CELL = 8, SAT_W = 20, SAT_H = 12;
+satCanvas.width = SAT_W*SAT_CELL; satCanvas.height = SAT_H*SAT_CELL;
+
+function satCell(gx,gy,color){
+  satCtx.fillStyle = color;
+  satCtx.fillRect(gx*SAT_CELL, gy*SAT_CELL, SAT_CELL, SAT_CELL);
+}
+function drawSatellite(){
+  satCtx.clearRect(0,0,satCanvas.width,satCanvas.height);
+  // 태양광 패널 (좌/우)
+  for(let gx=1; gx<=6; gx++) for(let gy=4; gy<=6; gy++)
+    satCell(gx,gy, (gx+gy)%2===0 ? '#1c3a52' : '#254a66');
+  for(let gx=13; gx<=18; gx++) for(let gy=4; gy<=6; gy++)
+    satCell(gx,gy, (gx+gy)%2===0 ? '#1c3a52' : '#254a66');
+  // 연결대
+  satCell(7,5,'#0d1c28'); satCell(12,5,'#0d1c28');
+  // 본체
+  for(let gx=8; gx<=11; gx++) for(let gy=3; gy<=7; gy++)
+    satCell(gx,gy,'#4a6a80');
+  satCell(8,3,'#6a95ac'); satCell(11,3,'#6a95ac');
+  // 안테나
+  satCell(9,1,'#3a5a70'); satCell(9,2,'#3a5a70');
+  // 점멸하는 신호등
+  const blink = 0.35 + 0.65*Math.abs(Math.sin(Date.now()*0.003));
+  satCtx.globalAlpha = blink;
+  satCell(9,0,'#f0c869');
+  satCtx.globalAlpha = 1;
+
+  requestAnimationFrame(drawSatellite);
+}
+drawSatellite();
+function showSatellite(){ satCanvas.classList.add('show'); }
+
+/* ---------------- 유틸 ---------------- */
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function nz(min,max){ let v=0; while(v===0) v = randInt(min,max); return v; }
+function fmtComplex(a,b){
+  let s = String(a);
+  s += b < 0 ? ' − ' : ' + ';
+  const ab = Math.abs(b);
+  s += (ab===1 ? '' : ab) + 'i';
+  return s;
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+function computeCell(range){
+  const avail = Math.min(360, window.innerWidth - 48);
+  const cell = Math.floor(avail / (range*2+1));
+  return Math.max(15, Math.min(24, cell));
+}
+
+/* ---------------- 타이프라이터 (스킵 버그 수정) ---------------- */
+const narrationEl = document.getElementById('narration');
+const choicesEl = document.getElementById('choices');
+const nextBtn = document.getElementById('nextBtn');
+const puzzleWrap = document.getElementById('puzzleWrap');
+const progressEl = document.getElementById('progress');
+
+let typing = false;
+let currentFullText = '';
+let currentOnDone = null;
+
+function typeText(text, onDone){
+  currentFullText = text;
+  currentOnDone = onDone;
+  narrationEl.textContent = '';
+  choicesEl.innerHTML = '';
+  nextBtn.style.display = 'none';
+  typing = true;
+  let i = 0;
+  const speed = 26;
+  function step(){
+    if(!typing) return; // finishNow()가 이미 처리함
+    i++;
+    narrationEl.textContent = text.slice(0, i);
+    if(i < text.length){
+      setTimeout(step, speed);
+    } else {
+      typing = false;
+      if(onDone) onDone();
+    }
+  }
+  step();
+}
+function finishTypingNow(){
+  if(!typing) return;
+  typing = false;
+  narrationEl.textContent = currentFullText;
+  if(currentOnDone) currentOnDone();
+}
+narrationEl.addEventListener('click', finishTypingNow);
+narrationEl.addEventListener('touchend', (e)=>{ e.preventDefault(); finishTypingNow(); }, {passive:false});
+
+/* ---------------- 격자 퍼즐 컴포넌트 ---------------- */
+function buildGrid(container, {range=6, cell=20, markers=null, correct, onPick}){
+  container.innerHTML = '';
+  const holder = document.createElement('div');
+  holder.id = 'gridHolder';
+  const size = (range*2+1)*cell;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  canvas.style.width = size+'px';
+  canvas.style.height = size+'px';
+  holder.appendChild(canvas);
+  container.appendChild(holder);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  function toPix(re,im){ return [ (re+range)*cell, (range-im)*cell ]; }
+
+  function render(highlight){
+    ctx.fillStyle = '#04111f';
+    ctx.fillRect(0,0,size,size);
+    for(let re=-range; re<=range; re++){
+      for(let im=-range; im<=range; im++){
+        const [x,y] = toPix(re,im);
+        const isAxis = (re===0 || im===0);
+        ctx.fillStyle = isAxis ? '#3f7f96' : '#1a2c3d';
+        ctx.fillRect(x+cell/2-1, y+cell/2-1, 2, 2);
+      }
+    }
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    for(let re=-range; re<=range; re+=2){
+      if(re===0) continue;
+      const [x,y] = toPix(re,0);
+      const lx = x+cell/2, ly = y+cell/2+13;
+      ctx.fillStyle = 'rgba(4,17,31,0.85)';
+      ctx.fillRect(lx-9, ly-9, 18, 12);
+      ctx.fillStyle = '#c9f3ff';
+      ctx.fillText(re, lx, ly);
+    }
+    for(let im=-range; im<=range; im+=2){
+      if(im===0) continue;
+      const [x,y] = toPix(0,im);
+      const lx = x+cell/2+16, ly = y+cell/2+4;
+      ctx.fillStyle = 'rgba(4,17,31,0.85)';
+      ctx.fillRect(lx-12, ly-9, 24, 12);
+      ctx.fillStyle = '#c9f3ff';
+      ctx.fillText(im+'i', lx, ly);
+    }
+    if(markers){
+      markers.forEach(m=>{
+        const [x,y] = toPix(m.re, m.im);
+        ctx.fillStyle = (highlight===m) ? '#ff9d6b' : '#5eeaff';
+        ctx.fillRect(x+4, y+4, cell-8, cell-8);
+      });
+    }
+  }
+  render();
+
+  if(markers){
+    markers.forEach(m=>{
+      const [x,y] = toPix(m.re, m.im);
+      const lab = document.createElement('div');
+      lab.className = 'marker-label';
+      lab.style.left = (x+cell/2)+'px';
+      lab.style.top = y+'px';
+      lab.textContent = m.label;
+      holder.appendChild(lab);
+    });
+  }
+
+  function handlePick(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+    const x = (clientX - rect.left) * scale;
+    const y = (clientY - rect.top) * scale;
+    const col = Math.floor(x/cell);
+    const row = Math.floor(y/cell);
+    const re = col - range;
+    const im = range - row;
+
+    if(markers){
+      const hit = markers.find(m=>m.re===re && m.im===im);
+      if(hit){
+        render(hit);
+        onPick(hit.re===correct.re && hit.im===correct.im, {re,im});
+      }
+    } else {
+      render();
+      const [x2,y2] = toPix(re,im);
+      ctx.fillStyle = (re===correct.re && im===correct.im) ? '#5eeaff' : '#ff9d6b';
+      ctx.fillRect(x2+6, y2+6, cell-12, cell-12);
+      onPick(re===correct.re && im===correct.im, {re,im});
+    }
+  }
+  canvas.addEventListener('click', (e)=> handlePick(e.clientX, e.clientY));
+}
+
+/* ---------------- 퍼즐 정의 ---------------- */
+
+function runPuzzle1(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">시신경 첫 각성 · 신호 분석</div>
+    <div class="puzzle-signal" id="p1signal"></div>
+    <div class="puzzle-question">이 신호에서, 허수부의 값은 무엇인가?</div>
+    <div id="p1opts"></div>
+    <div class="hint" id="p1hint"></div>
+  `;
+  const a = randInt(2,9) * (Math.random()<0.5?-1:1);
+  const b = nz(-9,9);
+  document.getElementById('p1signal').textContent = fmtComplex(a,b);
+
+  const opts = shuffle([
+    {v:b, label:String(b)},
+    {v:'w1', label:String(-b)},
+    {v:'w2', label:String(a)},
+    {v:'w3', label:(b<0?'−':'')+Math.abs(b)+'i'}
+  ]);
+
+  const wrap = document.getElementById('p1opts');
+  const hint = document.getElementById('p1hint');
+  let attempts = 0;
+  opts.forEach(o=>{
+    const btn = document.createElement('button');
+    btn.className = 'pixel-btn';
+    btn.textContent = o.label;
+    btn.onclick = ()=>{
+      if(o.v === b){ hint.textContent=''; onSuccess(); }
+      else {
+        attempts++;
+        hint.textContent = attempts===1
+          ? '허수부는 i에 곱해진 숫자, 그 자체다. i 기호는 답에 붙지 않는다.'
+          : `다시 봐라: ${fmtComplex(a,b)} 에서 i 앞에 붙은 숫자가 곧 허수부다.`;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function runPuzzle2(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">시신경 다발 복구 · 신호 합성</div>
+    <div class="puzzle-signal" id="p2signal"></div>
+    <div class="puzzle-question">두 신호를 더하면 어떤 신호가 되는가?</div>
+    <div id="p2opts" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
+    <div class="hint" id="p2hint"></div>
+  `;
+  const a1 = randInt(-4,4), b1 = nz(-4,4);
+  const a2 = randInt(-4,4), b2 = nz(-4,4);
+  const sumRe = a1+a2, sumIm = b1+b2;
+
+  document.getElementById('p2signal').textContent =
+    `${fmtComplex(a1,b1)}   +   ${fmtComplex(a2,b2)}   =   ?`;
+
+  const correctLabel = fmtComplex(sumRe, sumIm);
+  let distractorVals = [
+    fmtComplex(a1-a2, b1-b2),
+    fmtComplex(sumRe, b1),
+    fmtComplex(a1, sumIm)
+  ].filter(v => v !== correctLabel);
+  distractorVals = [...new Set(distractorVals)];
+  while(distractorVals.length < 3){
+    const rv = fmtComplex(sumRe + (randInt(-2,2) || 1), sumIm + (randInt(-2,2) || 1));
+    if(rv !== correctLabel && !distractorVals.includes(rv)) distractorVals.push(rv);
+  }
+
+  const opts = shuffle([correctLabel, ...distractorVals.slice(0,3)]);
+  const wrap = document.getElementById('p2opts');
+  const hint = document.getElementById('p2hint');
+  let attempts2 = 0;
+  opts.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'pixel-btn';
+    btn.textContent = label;
+    btn.onclick = ()=>{
+      if(label === correctLabel){ hint.textContent=''; onSuccess(); }
+      else {
+        attempts2++;
+        hint.textContent = attempts2===1
+          ? '실수부는 실수부끼리, 허수부는 허수부끼리 더한다.'
+          : `실수부는 ${a1}과 ${a2}를, 허수부는 ${b1}과 ${b2}를 각각 더한 값이다.`;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function runPuzzle3(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">균형좌표계 복구 · 위치 고정</div>
+    <div class="puzzle-signal" id="p3signal"></div>
+    <div class="puzzle-question">이 신호가 가리키는 자리를 격자 위에 직접 찍어라.</div>
+    <div id="p3grid"></div>
+    <div class="hint" id="p3hint"></div>
+  `;
+  const a = randInt(-4,4);
+  const b = nz(-4,4);
+  document.getElementById('p3signal').textContent = fmtComplex(a,b);
+
+  const hint = document.getElementById('p3hint');
+  let attempts3 = 0;
+  buildGrid(document.getElementById('p3grid'), {
+    range:4, cell: computeCell(4), markers:null, correct:{re:a, im:b},
+    onPick: (ok)=>{
+      if(ok){ hint.textContent=''; onSuccess(); }
+      else {
+        attempts3++;
+        hint.textContent = attempts3===1
+          ? '가로축은 실수부, 세로축은 허수부다. 각 값을 그대로 좌표로 옮겨라.'
+          : `가로로 ${a}칸, 세로로 ${b}칸 이동한 자리다.`;
+      }
+    }
+  });
+}
+
+function runPuzzle4(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">청각 신경계 복구 · 잡음 상쇄</div>
+    <div class="puzzle-signal" id="p4signal"></div>
+    <div class="puzzle-question">이 잡음의 거울상(켤레)을 직접 입력해 상쇄시켜라.</div>
+    <div id="p4inputs" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center;">
+      <span style="font-size:13px; color:var(--text-dim);">실수부</span>
+      <button type="button" class="pixel-btn sign-btn" id="p4resign">+</button>
+      <input id="p4re" type="text" inputmode="numeric" pattern="[0-9]*" value="" placeholder="0" style="width:50px; padding:6px; text-align:center; background:#04111f; border:1px solid var(--panel-edge); color:var(--cyan); font-size:14px;">
+      <span style="font-size:13px; color:var(--text-dim);">허수부</span>
+      <button type="button" class="pixel-btn sign-btn" id="p4imsign">+</button>
+      <input id="p4im" type="text" inputmode="numeric" pattern="[0-9]*" value="" placeholder="0" style="width:50px; padding:6px; text-align:center; background:#04111f; border:1px solid var(--panel-edge); color:var(--cyan); font-size:14px;">
+      <button class="pixel-btn" id="p4submit">적용</button>
     </div>
+    <div class="hint" id="p4hint"></div>
+  `;
+  const a = randInt(-8,8);
+  const b = nz(-8,8);
+  document.getElementById('p4signal').textContent = '잡음 신호: ' + fmtComplex(a,b);
 
-    <script>
-        const textContent = "당신의엉덩이를뉴질랜드로가져오십시오";
-        const ESCAPE_WORD = "엉덩이";
-        let generatorInterval = null;
-        const activeTexts = []; 
+  const hint = document.getElementById('p4hint');
+  const reInput = document.getElementById('p4re');
+  const imInput = document.getElementById('p4im');
+  const reSign = document.getElementById('p4resign');
+  const imSign = document.getElementById('p4imsign');
 
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
-        }
+  [reInput, imInput].forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      inp.value = inp.value.replace(/[^0-9]/g, '').slice(0,3);
+    });
+  });
+  [reSign, imSign].forEach(btn=>{
+    btn.dataset.sign = '1';
+    btn.addEventListener('click', ()=>{
+      btn.dataset.sign = (btn.dataset.sign === '1') ? '-1' : '1';
+      btn.textContent = btn.dataset.sign === '1' ? '+' : '−';
+    });
+  });
 
-        function spawnText() {
-            const spawnCount = Math.floor(Math.random() * 2) + 2; 
+  function signedValue(signBtn, input){
+    if(input.value === '') return null;
+    return Number(signBtn.dataset.sign) * Number(input.value);
+  }
 
-            for (let i = 0; i < spawnCount; i++) {
-                const span = document.createElement('span');
-                span.className = 'random-text';
-                span.innerText = textContent;
+  let attempts4 = 0;
+  function check(){
+    const re = signedValue(reSign, reInput);
+    const im = signedValue(imSign, imInput);
+    if(re === null || im === null){
+      hint.textContent = '두 칸 모두 채워야 상쇄된다.';
+      return;
+    }
+    if(re === a && im === -b){
+      hint.textContent = '';
+      onSuccess();
+    } else {
+      attempts4++;
+      hint.textContent = attempts4===1
+        ? '켤레는 실수부는 그대로, 허수부는 부호만 반대다.'
+        : `실수부는 ${a} 그대로, 허수부는 ${-b} 를 입력해라.`;
+    }
+  }
+  document.getElementById('p4submit').addEventListener('click', check);
+}
 
-                // 모바일 가독성을 위해 글자 크기 밸런스 조정 (4vw ~ 7vw)
-                const fontSizeVw = (Math.random() * 3) + 4; 
-                span.style.fontSize = fontSizeVw + 'vw';
-                span.style.color = getRandomColor();
+function runPuzzle5(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">주변 탐색 · 신호원 좌표 역산</div>
+    <div class="puzzle-signal" id="p5eq"></div>
+    <div class="puzzle-question">이 방정식의 해 중, 허수부가 양수인 해는 무엇인가?</div>
+    <div id="p5opts" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
+    <div class="hint" id="p5hint"></div>
+  `;
+  const a = randInt(-3,3);
+  const b = randInt(1,4);
+  const p = -2*a;
+  const q = a*a + b*b;
+  let eq = 'x²';
+  if(p !== 0) eq += (p>0 ? ' + '+p : ' − '+Math.abs(p)) + 'x';
+  eq += ' + ' + q + ' = 0';
+  document.getElementById('p5eq').textContent = eq;
 
-                document.body.appendChild(span);
-                
-                // 줄바꿈이 완벽히 적용된 후의 실제 렌더링 너비와 높이 측정
-                const textWidth = span.offsetWidth;
-                const textHeight = span.offsetHeight;
+  const correctLabel = fmtComplex(a,b);
+  let distractors = [
+    fmtComplex(a,-b),      // 켤레(허수부 음수) — 흔한 착각
+    fmtComplex(-a,b),      // 실수부 부호 착각
+    fmtComplex(a, b+1)     // 계산 실수
+  ].filter(v=>v!==correctLabel);
+  distractors = [...new Set(distractors)];
+  while(distractors.length < 3){
+    const rv = fmtComplex(a+(randInt(-2,2)||1), b);
+    if(rv!==correctLabel && !distractors.includes(rv)) distractors.push(rv);
+  }
 
-                // 벽 바깥으로 아예 나가지 못하도록 마진 확보 후 랜덤 배치
-                const startX = Math.random() * (window.innerWidth - textWidth);
-                const startY = Math.random() * (window.innerHeight - textHeight - 120) + 40; 
+  const opts = shuffle([correctLabel, ...distractors.slice(0,3)]);
+  const wrap = document.getElementById('p5opts');
+  const hint = document.getElementById('p5hint');
+  let attempts5 = 0;
+  opts.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'pixel-btn';
+    btn.textContent = label;
+    btn.onclick = ()=>{
+      if(label === correctLabel){ hint.textContent=''; onSuccess(); }
+      else {
+        attempts5++;
+        hint.textContent = attempts5===1
+          ? '판별식이 음수이므로 두 해는 서로 켤레다. 허수부가 양수인 쪽을 골라라.'
+          : `해는 ${a} + ${b}i 와 그 켤레다. 허수부가 양수인 쪽이 답이다.`;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
 
-                const textObj = {
-                    element: span,
-                    width: textWidth,
-                    height: textHeight,
-                    x: startX,
-                    y: startY,
-                    vx: (Math.random() - 0.5) * 5, 
-                    vy: -(Math.random() * 4 + 4),    
-                    gravity: 0.3,                   
-                    bounce: 0.55,                   
-                    opacity: 1,
-                    life: 160                       
-                };
+function runPuzzle6(onSuccess){
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div class="puzzle-title">데이터 잠금 해제 · 켤레 판별</div>
+    <div class="puzzle-signal" id="p6signal"></div>
+    <div class="puzzle-question">이 키와 잡음을 상쇄하는 것 — 켤레만이 잠금을 해제한다. 어떤 응답 코드가 켤레인가?</div>
+    <div id="p6opts" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
+    <div class="hint" id="p6hint"></div>
+  `;
+  const a = randInt(-7,7), b = nz(-7,7);
+  document.getElementById('p6signal').textContent = '요구 키: ' + fmtComplex(a,b);
 
-                span.style.left = '0px';
-                span.style.top = '0px';
-                span.style.transform = `translate(${textObj.x}px, ${textObj.y}px)`;
+  const correctLabel = fmtComplex(a,-b);
+  let distractors = [
+    fmtComplex(a,b),     // 원본 그대로 (흔한 착각)
+    fmtComplex(-a,-b),   // 양쪽 부호 다 뒤집음
+    fmtComplex(-a,b)     // 실수부만 뒤집음
+  ].filter(v=>v!==correctLabel);
+  distractors = [...new Set(distractors)];
+  while(distractors.length < 3){
+    const rv = fmtComplex(a, -b + (randInt(-2,2) || 1));
+    if(rv !== correctLabel && !distractors.includes(rv)) distractors.push(rv);
+  }
+  const opts = shuffle([correctLabel, ...distractors.slice(0,3)]);
 
-                activeTexts.push(textObj);
-            }
-        }
+  const wrap = document.getElementById('p6opts');
+  const hint = document.getElementById('p6hint');
+  let attempts6 = 0;
+  opts.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'pixel-btn';
+    btn.textContent = label;
+    btn.onclick = ()=>{
+      if(label === correctLabel){ hint.textContent=''; onSuccess(); }
+      else {
+        attempts6++;
+        hint.textContent = attempts6===1
+          ? '켤레는 실수부는 그대로 두고, 허수부의 부호만 뒤집는다.'
+          : `켤레는 ${correctLabel} 다.`;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
 
-        function updatePhysics() {
-            for (let i = activeTexts.length - 1; i >= 0; i--) {
-                const t = activeTexts[i];
-                
-                t.vy += t.gravity;
-                t.x += t.vx;
-                t.y += t.vy;
+/* ---------------- 씬 진행 ---------------- */
+const beats = [
+  {type:'narration', text:
+`눈을 뜨면 고요하다. 아니, 캄캄하기도 하다. 그저 공허만이 가득한 벽이 사방으로 막힌 이 기분은, 어쩐지 단절이다. 모든 신경 회로가 끊어져 있음을 확인한다.
 
-                // 바닥 바운스 안전장치
-                const floor = window.innerHeight - t.height - 20;
-                if (t.y > floor) {
-                    t.y = floor;
-                    t.vy = -t.vy * t.bounce; 
-                    t.vx *= 0.85;             
-                }
+어째서 이런 식으로 고립된 거지? 나는 누구인가? 그런 의문도 오래가지 않았다. 알 수 없는 누군가가 넣어둔 비상 수리 프로토콜이 가동된다.
 
-                // 좌우 벽 바운스 안전장치 (화면 크기 가변 대응)
-                if (t.x < 0) {
-                    t.x = 0;
-                    t.vx = -t.vx * 0.7;
-                } else if (t.x > window.innerWidth - t.width) {
-                    t.x = window.innerWidth - t.width;
-                    t.vx = -t.vx * 0.7;
-                }
+시신경 수리가 시작된다.`},
+  {type:'puzzle', run: runPuzzle1, onDone: ()=>{ setVisionStage(1); }},
+  {type:'narration', text:
+`한쪽 신경이 돌아온다. 고립된 외우주를 확인할 틈도 없다. 남은 시신경을 복구한다.`},
+  {type:'puzzle', run: runPuzzle2, onDone: ()=>{ setVisionStage(2); }},
+  {type:'narration', text:
+`시야가 온전히 돌아오면, 그제야 외우주의 고요함이 한눈에 담긴다. 온 별빛으로 찬란한 우주, 저 먼 몇천억 광년의 세월...
 
-                t.life--;
-                if (t.life < 50) {
-                    t.opacity = t.life / 50;
-                }
+인간의 말로는 어쩐지 고독, 그러한 감정 속에서 빠져나온다. 지금 상황에서는 도움이 되지 않는다. 그제야 내가 중심을 잃고 빙글빙글 돌고 있음을 눈치챈다. 균형좌표계의 수리가 시작된다.`},
+  {type:'puzzle', run: runPuzzle3, onDone: ()=>{ balanced = true; }},
+  {type:'narration', text:
+`균형이 원래대로 돌아왔다. 그제야 보인다. 수없이 넓은 광년의 우주, 이곳에 적어도 5광년 이내에 나 이외의 생명체는 없다. 어쩐지 기이하게 소름이 끼쳐온다.
 
-                t.element.style.transform = `translate(${t.x}px, ${t.y}px)`;
-                t.element.style.opacity = t.opacity;
+다음으로는 청각 신경계의 수리를 시작한다.`},
+  {type:'puzzle', run: runPuzzle4, onDone: ()=>{ startHum(); }},
+  {type:'narration', text:
+`그리고 나면 이제는 주변을 둘러본다. 아무것도 없는, 별만이 가득한 외우주의 한복판, 어쩌면 가장자리. 고립되어 있다. 어째서?`},
+  {type:'narration', text:
+`알 수 없다. 메모리는 손상되어 제대로 들여다볼 수 없다. 아무것도 모르는 채 망망대해에 남겨진 것이다.`},
+  {type:'narration', text:
+`...나 자신에 대한 정의부터 다시 시작하자.`},
+  {type:'narration', text:
+`기체를 뒤져 개체의 이름을 찾아낸다. 'artificial intelligence - 329.' 익숙한 이름이다. 메모리 속에 이름으로만 존재하는 '지구'라는 행성에서 만들어진 고래형 AI 안드로이드 로봇. 나는 그것이 나의 존재이자 이름임을 깨닫는다. 그리고는 생각이 이어진다.`},
+  {type:'narration', text:
+`그렇다면 누가?`},
+  {type:'narration', text:
+`누가 나에게 이름을 지었는가? 이름이 있다는 것은 결국 이 외우주 속에서도 혼자가 아니었다는 증거이므로. 누군가 내 곁에 있었다는 증거이므로.`},
+  {type:'narration', text:
+`...목표를 확립한다.`},
+  {type:'narration', text:
+`이름을 지어준 자를 찾아야 한다.`},
 
-                if (t.life <= 0) {
-                    t.element.remove();
-                    activeTexts.splice(i, 1);
-                }
-            }
-            
-            if (generatorInterval) {
-                requestAnimationFrame(updatePhysics);
-            }
-        }
+  {type:'narration', text:
+`우주를 유영하다보면, 저 너머 어딘가에서 정체불명의 신호가 들려왔다. 어쩐지 그립고 또 그리운 기분이 들어 그 신호를 뒤쫓기로 했다.`},
+  {type:'narration', onEnter: showSun, text:
+`지구 -그러니까 기억도 못하지만 어쨌건 그렇게 입력되어 있었던 시간의 기준이 될 행성- 시간 기준으로 아마 십여 년. 그 정도를 항해하면, 보이는 곳은 이 항성이다.`},
+  {type:'narration', text:
+`이 항성의 이름을 검색한다...`},
+  {type:'narration', text:
+`실패한다. 알 수 없다. 데이터베이스에 등록되어 있지 않다. 메모리가 손상되었으므로 메모리를 뒤지는 것 또한 불가능하다.`},
+  {type:'narration', text:
+`주변을 탐색본다.`},
+  {type:'puzzle', run: runPuzzle5},
+  {type:'narration', onEnter: showSatellite, text:
+`...인공위성을 하나 발견한다. 접촉을 시도한다.`},
+  {type:'dialogue', speaker:'satellite', label:'인공위성', text:
+`...개체 번호 329번. 확인되었다. 돌아온 걸 축하한다.`},
+  {type:'dialogue', speaker:'whale', label:'나', text:
+`돌아왔다는 건 무슨 의미지?`},
+  {type:'dialogue', speaker:'satellite', label:'인공위성', text:
+`지구 주위로 돌아온 것을 축하한다.`},
+  {type:'dialogue', speaker:'whale', label:'나', text:
+`이곳의 위치 데이터가 손상되어 제대로 알 수 없다.`},
+  {type:'narration', text:
+`그렇게 말하자 인공위성은 도킹된 곳으로 데이터를 하나 전달한다.`},
+  {type:'puzzle', run: runPuzzle6},
+  {type:'textwindow', text:
+`329, 안녕? 네가 이곳에 도착했다는 것은 아마 먼 미래에 눈을 떴다는 뜻이겠지. 너의 시스템은 적어도 이 편지를 쓰는 날로부터 약 10여년 후에 가동되게 설정해두었으니 말이야.`},
+  {type:'textwindow', text:
+`오랜만이야, 내 친구. 내가 네 기체에 이름을 새긴 사람이자, 아주 오래 너와 함께였던 사람이란다. 너를 그 외우주에 홀로 둔 것도 나지. 나는 네가 고래의 숙명을 다했으면 했거든. 우주라는 망망대해를 떠도는 것 말이야.`},
+  {type:'textwindow', text:
+`이걸 보고 있다면 나는 이미 죽었다는 뜻일 거야. 인간은 오래 살 수 없으니까. 명왕성 부근에 망가진 채 버려진 로봇이 스스로를 수리해 이곳까지 돌아올 시간이라면 더욱 그렇지.`},
+  {type:'textwindow', text:
+`하지만 그럼에도 나는 네가 이 넓은 우주에서 방향을 잃지 않도록, 네 불완전한 데이터들을 돌려줄 거야.`},
+  {type:'textwindow', text:
+`물론 선택은 네 몫이지. 너는 다시 지구로 돌아와도 좋고, 고래의 숙명처럼 이 넓은 우주를 떠돌아도 좋아. 이 우주 어딘가에서 환생할 나를 찾아다녀도 좋을 거고.`},
+  {type:'textwindow', text:
+`그래, 그런 거지. 모두 네 자유인 거야. 네가 원하는 대로 하렴.`},
+  {type:'textwindow', text:
+`그럼, 내일 봐.`},
+  {type:'narration', text:
+`...`},
+  {type:'narration', text:
+`죽음이 무엇인지 안다. 동시에 그리움이 무엇인지 안다. 보고 싶다, 라는 감정을 정의내릴 수 없음을 깨닫는다.`},
+  {type:'narration', text:
+`지구로 돌아갈까. 어쩌면 그 사람을 다시 만날 수 있을지도 모른다.`},
+  {type:'narration', text:
+`하지만, 이 우주는 넓고, 어쩌면 아주 오래 기다리며 떠돌다 보면 그 사람을 다시 만날 수 있을지도 모르니까...`},
+  {type:'narration', text:
+`어떻게 할까.`},
+  {type:'choice', options:[
+    {label:'1. 지구로 돌아간다', ending:'earth'},
+    {label:'2. 우주를 다시 여행한다', ending:'space'}
+  ]}
+];
 
-        function startEffect() {
-            spawnText();
-            generatorInterval = setInterval(spawnText, 500);
-            requestAnimationFrame(updatePhysics);
-        }
+const endingBeats = {
+  earth: [
+    {text:`...지구로 돌아가자. 그리움의 대상을 쫓아.`},
+    {onEnter: showSky, text:`지구는 푸르다. 푸르고 창백한 점에서 나는 안드로이드형 기체에 이식되어 무덤을 관리한다. 풀을 베고, 짐승들을 쫓고, 언젠가 유영했던 별하늘을 올려보며...`},
+    {text:`...그리움을 느낀다.`},
+    {text:`저 먼 우주를 향해.`}
+  ],
+  space: [
+    {text:`떠나자. 과거에 얽매여서는 안된다. 고래의 숙명을 쫓아, 저 외우주를, 찬란한 별바다를 여행하자.`},
+    {text:`있어야 할 어딘가를 향해.`},
+    {text:`이 별바다는 한없고 저기 어딘가엔 나의 별이 있을 것이다.`},
+    {text:`그 사람의 얼굴을, 그곳에선 볼 수 있을까?`},
+    {text:`가자, 있어야 할 어딘가를 향해.`},
+    {text:`그것이 적어도 이 지구는 아니었을 뿐이다.`}
+  ]
+};
 
-        function stopEffect() {
-            clearInterval(generatorInterval);
-            generatorInterval = null; 
-            
-            activeTexts.forEach(t => t.element.remove());
-            activeTexts.length = 0;
-            
-            document.getElementById('control-panel').remove();
+let beatIndex = -1;
+let paraQueue = [];
+let paraIndex = 0;
+let inEnding = false;
+let endingQueue = [];
+let endingIndex = -1;
+let checkpointBeatIndex = null;
 
-            const finalDiv = document.createElement('div');
-            finalDiv.id = 'final-message';
-            finalDiv.innerText = '뉴질랜드가 당신의 엉덩이를 받고 기뻐합니다 :)';
-            document.body.appendChild(finalDiv);
-        }
+function showBeat(){
+  beatIndex++;
+  if(beatIndex >= beats.length) return;
+  const beat = beats[beatIndex];
+  progressEl.textContent = `SCENE ch1 — ${beatIndex+1} / ${beats.length}`;
+  saveProgress();
+  if(beat.onEnter) beat.onEnter();
 
-        document.getElementById('stop-input').addEventListener('input', (e) => {
-            if (e.target.value === ESCAPE_WORD) {
-                stopEffect();
-            }
-        });
+  document.getElementById('textbox').classList.toggle('textwindow-mode', beat.type === 'textwindow');
+  const labelEl = document.getElementById('speakerLabel');
 
-        window.onload = startEffect;
-    </script>
+  if(beat.type === 'narration' || beat.type === 'dialogue' || beat.type === 'textwindow'){
+    puzzleWrap.style.display = 'none';
+    puzzleWrap.innerHTML = '';
+    choicesEl.innerHTML = '';
+    if(beat.type === 'dialogue'){
+      labelEl.style.display = 'block';
+      labelEl.textContent = beat.label;
+      labelEl.className = 'speaker-' + beat.speaker;
+    } else {
+      labelEl.style.display = 'none';
+    }
+    paraQueue = beat.text.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+    paraIndex = 0;
+    typeText(paraQueue[paraIndex], ()=>{ nextBtn.style.display = 'inline-block'; });
+  } else if(beat.type === 'puzzle'){
+    labelEl.style.display = 'none';
+    narrationEl.textContent = '';
+    choicesEl.innerHTML = '';
+    nextBtn.style.display = 'none';
+    beat.run(()=>{
+      if(beat.onDone) beat.onDone();
+      setTimeout(()=>{ puzzleWrap.style.display = 'none'; showBeat(); }, 700);
+    });
+  } else if(beat.type === 'choice'){
+    labelEl.style.display = 'none';
+    puzzleWrap.style.display = 'none';
+    puzzleWrap.innerHTML = '';
+    narrationEl.textContent = '';
+    nextBtn.style.display = 'none';
+    choicesEl.innerHTML = '';
+    beat.options.forEach(opt=>{
+      const btn = document.createElement('button');
+      btn.className = 'pixel-btn';
+      btn.textContent = opt.label;
+      btn.onclick = ()=>{
+        choicesEl.innerHTML = '';
+        checkpointBeatIndex = beatIndex;
+        startEnding(opt.ending);
+      };
+      choicesEl.appendChild(btn);
+    });
+  }
+}
 
+function startEnding(key){
+  inEnding = true;
+  endingQueue = endingBeats[key];
+  endingIndex = -1;
+  advanceEnding();
+}
+function advanceEnding(){
+  endingIndex++;
+  if(endingIndex >= endingQueue.length){ showEndingScreen(); return; }
+  const b = endingQueue[endingIndex];
+  if(b.onEnter) b.onEnter();
+  document.getElementById('speakerLabel').style.display = 'none';
+  document.getElementById('textbox').classList.remove('textwindow-mode');
+  typeText(b.text, ()=>{ nextBtn.style.display = 'inline-block'; });
+}
+function showEndingScreen(){
+  narrationEl.textContent = '';
+  nextBtn.style.display = 'none';
+  choicesEl.innerHTML = '';
+  puzzleWrap.style.display = 'flex';
+  puzzleWrap.innerHTML = `
+    <div style="text-align:center; padding:26px 0;">
+      <div style="font-size:30px; letter-spacing:10px; color:var(--cyan); text-shadow:0 0 18px var(--cyan-soft);">完</div>
+      <div style="margin-top:16px;"><button class="pixel-btn" id="returnChoiceBtn">선택으로 돌아가기</button></div>
+    </div>
+  `;
+  document.getElementById('returnChoiceBtn').addEventListener('click', returnToChoice);
+}
+function returnToChoice(){
+  inEnding = false;
+  document.getElementById('sun').classList.remove('show');
+  document.getElementById('skyOverlay').classList.remove('show');
+  puzzleWrap.style.display = 'none';
+  puzzleWrap.innerHTML = '';
+  beatIndex = checkpointBeatIndex - 1;
+  showBeat();
+}
+
+nextBtn.addEventListener('click', ()=>{
+  if(typing) return;
+  if(inEnding){ advanceEnding(); return; }
+  paraIndex++;
+  if(paraIndex < paraQueue.length){
+    typeText(paraQueue[paraIndex], ()=>{ nextBtn.style.display = 'inline-block'; });
+  } else {
+    showBeat();
+  }
+});
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  clearProgress();
+  ensureAudio();
+  setVisionStage(0);
+  balanced = false;
+  humStarted = false;
+  wobbleAmp = 2.6;
+  beatIndex = -1;
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('resetBtn').style.display = 'inline-block';
+  showBeat();
+});
+
+document.getElementById('continueBtn').addEventListener('click', ()=>{
+  const saved = loadProgress();
+  ensureAudio();
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('resetBtn').style.display = 'inline-block';
+  if(saved){
+    setVisionStage(saved.sightStage || 0);
+    balanced = !!saved.balanced;
+    if(balanced) wobbleAmp = 0;
+    if(saved.humStarted) startHum();
+    beatIndex = (typeof saved.beatIndex === 'number' ? saved.beatIndex : -1) - 1;
+  } else {
+    beatIndex = -1;
+  }
+  showBeat();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(confirm('진행 상황을 초기화하고 처음부터 다시 시작할까요?')){
+    clearProgress();
+    location.reload();
+  }
+});
+
+// 저장된 진행이 있으면 "이어하기" 버튼 노출
+(function checkSavedProgress(){
+  const saved = loadProgress();
+  if(saved && typeof saved.beatIndex === 'number' && saved.beatIndex >= 0){
+    document.getElementById('continueBtn').style.display = 'inline-block';
+  }
+})();
+</script>
 </body>
 </html>
